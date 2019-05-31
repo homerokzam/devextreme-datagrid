@@ -5,6 +5,7 @@ import DataGrid, { GroupPanel, Grouping, Paging, Column, Summary, GroupItem, Fil
 import Toolbar, { Item } from 'devextreme-react/toolbar';
 import { SimpleItem, RequiredRule, ButtonItem } from 'devextreme-react/form';
 import ArrayStore from 'devextreme/data/array_store';
+import CustomStore from 'devextreme/data/custom_store';
 
 import moment from 'moment';
 
@@ -13,17 +14,23 @@ import { dados } from './data'
 import logo from './logo.svg';
 import './App.css';
 
-const App = (props) => {
+const dataSourceData = {
+  store: new CustomStore({
+    key: "oid",
+    load: function(loadOptions) {
+      return dados.caixas;
+    }
+  })
+};
 
-  const storeVazia = new ArrayStore({ key: "oid", data: [] });
+const App = (props) => {
 
   const [currentFiltro, setCurrentFiltro] = useState({ inicial: moment().endOf('day').add(-3, 'month').startOf('month').toDate(), final: moment().endOf('day').toDate() });
   const [filterOptionsVisible, setFilterOptionsVisible] = useState(false);
 
-  const [dataSourceData, setDataSourceData] = useState(storeVazia);
-
   const refDataGridData = useRef();
   const refFormFiltro = useRef();
+  const refPopover = useRef();
 
   const handleOnClickFilter = (e) => {
     setFilterOptionsVisible(true);
@@ -57,13 +64,6 @@ const App = (props) => {
   const handleEditIconClick = (e) => { }
   const handleDeleteIconClick = (e) => { }
 
-
-  useEffect(() => {
-    console.log("useEffect", dados);
-    const storeCaixas = new ArrayStore({ key: "oid", data: dados.caixas });
-    setDataSourceData(storeCaixas);
-  }, []);
-
   return (
     <>
       <Toolbar style={{ backgroundColor: 'rgba(247, 127, 127, 0.521)' }}>
@@ -71,7 +71,7 @@ const App = (props) => {
         <Item location={'before'}><div className='toolbar-label'><b>Vendas</b></div></Item>
       </Toolbar>
 
-      <Popover target={'#filter'} position={'top'} width={500} visible={filterOptionsVisible} onHiding={hideWithFilterOptions} shading={true}>
+      <Popover ref={refPopover} target={'#filter'} position={'top'} width={500} visible={filterOptionsVisible} onHiding={hideWithFilterOptions} shading={true}>
         <Form ref={refFormFiltro} formData={currentFiltro} labelLocation={'top'} colCount={2} >
           <SimpleItem dataField={'inicial'} label={ {text: 'Período'} } editorType={'dxDateBox'} >
             <RequiredRule message={"Data inicial é obrigatório!"} />
@@ -85,7 +85,7 @@ const App = (props) => {
         </Form>
       </Popover>
 
-      <DataGrid dataSource={dataSourceData} allowColumnReordering={true} showBorders={true}  >
+      <DataGrid ref={refDataGridData} dataSource={dataSourceData} allowColumnReordering={true} showBorders={true}  >
 
         <GroupPanel visible={true} />
         <Grouping autoExpandAll={false} />
