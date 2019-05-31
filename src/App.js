@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'reactn';
+import React, { useState, useRef, useEffect, useMemo } from 'reactn';
 
 import { Button, Popover,Form } from 'devextreme-react';
 import DataGrid, { GroupPanel, Grouping, Paging, Column, Summary, GroupItem, FilterRow } from 'devextreme-react/data-grid';
 import Toolbar, { Item } from 'devextreme-react/toolbar';
 import { SimpleItem, RequiredRule, ButtonItem } from 'devextreme-react/form';
 import ArrayStore from 'devextreme/data/array_store';
-import CustomStore from 'devextreme/data/custom_store';
 
 import moment from 'moment';
 
@@ -14,30 +13,24 @@ import { dados } from './data'
 import logo from './logo.svg';
 import './App.css';
 
-const dataSourceData = {
-  store: new CustomStore({
-    key: "oid",
-    load: function(loadOptions) {
-      return dados.caixas;
-    }
-  })
-};
-
 const App = (props) => {
 
-  const [currentFiltro, setCurrentFiltro] = useState({ inicial: moment().endOf('day').add(-3, 'month').startOf('month').toDate(), final: moment().endOf('day').toDate() });
-  const [filterOptionsVisible, setFilterOptionsVisible] = useState(false);
+  const storeVazia = new ArrayStore({ key: "oid", data: [] });
+
+  const [currentFiltro, setCurrentFiltro] = useState({ visible: false, inicial: moment().endOf('day').add(-3, 'month').startOf('month').toDate(), final: moment().endOf('day').toDate() });
+  //const [currentFiltro, dispatch] = useReducer(filtroReducer, { visible: false, inicial: moment().endOf('day').add(-3, 'month').startOf('month').toDate(), final: moment().endOf('day').toDate() });
+  const [dataSourceData, setDataSourceData] = useState(storeVazia);
 
   const refDataGridData = useRef();
   const refFormFiltro = useRef();
-  const refPopover = useRef();
+
 
   const handleOnClickFilter = (e) => {
-    setFilterOptionsVisible(true);
+    setCurrentFiltro({ ...currentFiltro, visible: true });
   }
 
   const hideWithFilterOptions = (e) => {
-    setFilterOptionsVisible(false);
+    setCurrentFiltro({ ...currentFiltro, visible: false });
   }
 
   const handleOnClickPesquisar = (e) => {
@@ -64,6 +57,54 @@ const App = (props) => {
   const handleEditIconClick = (e) => { }
   const handleDeleteIconClick = (e) => { }
 
+
+  useEffect(() => {
+    console.log("useEffect", dados);
+    const storeCaixas = new ArrayStore({ key: "oid", data: dados.caixas });
+    setDataSourceData(storeCaixas);
+  }, []);
+
+  const memoizedGrid = useMemo(() => 
+    <DataGrid dataSource={dataSourceData} allowColumnReordering={true} showBorders={true}  >
+
+      <GroupPanel visible={true} />
+      <Grouping autoExpandAll={false} />
+      <FilterRow visible={true} />
+      <Paging defaultPageSize={18} />
+
+      <Summary>
+        <GroupItem column={'contaAssinadaTotal'} summaryType={'sum'} displayFormat={'Conta Assinada {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
+        <GroupItem column={'fiscal'} summaryType={'sum'} displayFormat={'Fiscal {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
+        <GroupItem column={'gorjeta'} summaryType={'sum'} displayFormat={'Gorjeta {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
+        <GroupItem column={'saldo'} summaryType={'sum'} displayFormat={'Saldo {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
+      </Summary>
+
+      <Column type={'buttons'} width={140}
+        buttons={[{
+          hint: 'Editar',
+          icon: 'edit',
+          onClick: handleEditIconClick
+        }, {
+          hint: 'Excluir',
+          icon: 'trash',
+          onClick: handleDeleteIconClick
+        }]} />
+      <Column dataField={'oid'} visible={false} />
+      <Column dataField={'data'} caption={'Ano'} dataType={'date'} width={'5%'} groupIndex={0} autoExpandGroup={true} calculateCellValue={handleAnoCellValue} format={'yyyy'} />
+      <Column dataField={'data'} caption={'Mês'} dataType={'date'} width={'5%'} groupIndex={1} calculateCellValue={handleMesCellValue} format={'MMM'} />
+      <Column dataField={'data'} caption={'Data'} dataType={'date'} sortIndex={0} sortOrder={'Ascending'} width={'10%'} />
+      <Column dataField={'data'} caption={'Dia Semana'} calculateCellValue={handleDiaSemanaCellValue} width={'10%'} />
+      <Column dataField={'fechador'} caption={'Fechador'} width={'10%'} />
+      <Column dataField={'dinheiroTotal'} caption={'Total (Dinheiro)'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
+      <Column dataField={'suprimento'} caption={'Suprimento'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
+      <Column dataField={'moeda'} caption={'Moeda'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
+      <Column dataField={'fiscal'} caption={'Fiscal'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
+      <Column dataField={'fechado'} width={'10%'} visible={false} />
+      <Column dataField={'saldo'} caption={'Saldo'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
+
+    </DataGrid>
+  , [dataSourceData])
+
   return (
     <>
       <Toolbar style={{ backgroundColor: 'rgba(247, 127, 127, 0.521)' }}>
@@ -71,7 +112,7 @@ const App = (props) => {
         <Item location={'before'}><div className='toolbar-label'><b>Vendas</b></div></Item>
       </Toolbar>
 
-      <Popover ref={refPopover} target={'#filter'} position={'top'} width={500} visible={filterOptionsVisible} onHiding={hideWithFilterOptions} shading={true}>
+      <Popover target={'#filter'} position={'top'} width={500} visible={currentFiltro.visible} onHiding={hideWithFilterOptions} shading={true}>
         <Form ref={refFormFiltro} formData={currentFiltro} labelLocation={'top'} colCount={2} >
           <SimpleItem dataField={'inicial'} label={ {text: 'Período'} } editorType={'dxDateBox'} >
             <RequiredRule message={"Data inicial é obrigatório!"} />
@@ -85,44 +126,7 @@ const App = (props) => {
         </Form>
       </Popover>
 
-      <DataGrid ref={refDataGridData} dataSource={dataSourceData} allowColumnReordering={true} showBorders={true}  >
-
-        <GroupPanel visible={true} />
-        <Grouping autoExpandAll={false} />
-        <FilterRow visible={true} />
-        <Paging defaultPageSize={18} />
-
-        <Summary>
-          <GroupItem column={'contaAssinadaTotal'} summaryType={'sum'} displayFormat={'Conta Assinada {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
-          <GroupItem column={'fiscal'} summaryType={'sum'} displayFormat={'Fiscal {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
-          <GroupItem column={'gorjeta'} summaryType={'sum'} displayFormat={'Gorjeta {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
-          <GroupItem column={'saldo'} summaryType={'sum'} displayFormat={'Saldo {0}'} valueFormat={ {style: "currency", currency: "BRL", useGrouping: true} } />
-        </Summary>
-
-        <Column type={'buttons'} width={140}
-          buttons={[{
-            hint: 'Editar',
-            icon: 'edit',
-            onClick: handleEditIconClick
-          }, {
-            hint: 'Excluir',
-            icon: 'trash',
-            onClick: handleDeleteIconClick
-          }]} />
-        <Column dataField={'oid'} visible={false} />
-        <Column dataField={'data'} caption={'Ano'} dataType={'date'} width={'5%'} groupIndex={0} autoExpandGroup={true} calculateCellValue={handleAnoCellValue} format={'yyyy'} />
-        <Column dataField={'data'} caption={'Mês'} dataType={'date'} width={'5%'} groupIndex={1} calculateCellValue={handleMesCellValue} format={'MMM'} />
-        <Column dataField={'data'} caption={'Data'} dataType={'date'} sortIndex={0} sortOrder={'Ascending'} width={'10%'} />
-        <Column dataField={'data'} caption={'Dia Semana'} calculateCellValue={handleDiaSemanaCellValue} width={'10%'} />
-        <Column dataField={'fechador'} caption={'Fechador'} width={'10%'} />
-        <Column dataField={'dinheiroTotal'} caption={'Total (Dinheiro)'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
-        <Column dataField={'suprimento'} caption={'Suprimento'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
-        <Column dataField={'moeda'} caption={'Moeda'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
-        <Column dataField={'fiscal'} caption={'Fiscal'} dataType={'number'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
-        <Column dataField={'fechado'} width={'10%'} visible={false} />
-        <Column dataField={'saldo'} caption={'Saldo'} format={ {style: "currency", currency: "BRL", useGrouping: true} } width={'10%'} />
-
-      </DataGrid>
+      { memoizedGrid }
     </>
   );
 }
